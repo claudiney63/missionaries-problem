@@ -1,9 +1,9 @@
-# import networkx as nx
-# import matplotlib.pyplot as plt
+import networkx as nx
+import matplotlib.pyplot as plt
 from collections import deque
 import Estado
-# import psutil
-# import sys
+import psutil
+import sys
 
 def calcular_memoria_utilizada():
     processo = psutil.Process()
@@ -40,17 +40,39 @@ def busca_a_estrela():
 
     return None, caminhos, nos_gerados  # Retorna None para indicar que não foi encontrada uma solução, a lista de caminhos percorridos e o número de nós gerados
 
+# def plotar_caminhos(caminhos):
+#     G = nx.DiGraph()
+
+#     for caminho in caminhos:
+#         for i in range(len(caminho)):
+#             estado = caminho[i]
+#             G.add_node(estado)
+
+#             if i > 0:
+#                 estado_anterior = caminho[i-1]
+#                 G.add_edge(estado_anterior, estado)
+
+#     pos = nx.spring_layout(G)
+
+#     plt.figure(figsize=(10, 6))
+#     nx.draw_networkx_nodes(G, pos, node_color='lightblue', node_size=500)
+#     nx.draw_networkx_edges(G, pos, edge_color='gray')
+#     nx.draw_networkx_labels(G, pos, font_size=10)
+
+#     plt.axis('off')
+#     plt.show()
+
 print("Busca A*: ")
-# memoria_inicial = calcular_memoria_utilizada()
-# print(f"Utilização de memória antes: {memoria_inicial} MB")
+memoria_inicial = calcular_memoria_utilizada()
+print(f"Utilizacao de memoria antes: {memoria_inicial} MB")
 
 solucao_a_estrela, caminhos, nos_gerados = busca_a_estrela()
 
-# memoria_final = calcular_memoria_utilizada()
-# print(f"Utilização de memória depois: {memoria_final} MB")
+memoria_final = calcular_memoria_utilizada()
+print(f"Utilizacao de memoria depois: {memoria_final} MB")
 
-# diferenca_memoria = memoria_final - memoria_inicial
-# print(f"Diferença de memória: {diferenca_memoria} MB")
+diferenca_memoria = memoria_final - memoria_inicial
+print(f"Diferenca de memoria: {diferenca_memoria} MB")
 
 if solucao_a_estrela:
     lado = False
@@ -61,3 +83,6 @@ else:
     print("Não foi encontrada uma solução para o problema usando A* Search.")
 
 print("Numero de nos gerados:", nos_gerados)
+
+# # Plotar os caminhos
+# plotar_caminhos(caminhos)
