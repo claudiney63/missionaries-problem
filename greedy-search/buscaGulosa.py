@@ -1,36 +1,70 @@
+import time
 from collections import deque
 import Estado
+import sys
+import psutil
+
+def calcular_memoria_utilizada():
+    processo = psutil.Process()
+    memoria = processo.memory_info().rss
+    return memoria / (1024 * 1024)  # Converter para megabytes
 
 def heuristic(state):
-    # Função heurística: número de missionários e canibais ainda na margem esquerda
     return state.missionarios + state.canibais
 
-def greedy_search():
-    initial_state = Estado.Estado(3, 3, True)
-    visited = set()
-    queue = deque([(initial_state, [])])
+def busca_gulosa():
+    estado_inicial = Estado.Estado(3, 3, True)
+    visitados = set()
+    queue = deque([(estado_inicial, [])])
+    nos_gerados = 1
+
+    inicio = time.time()
+    memoria_inicial = calcular_memoria_utilizada()
+    print(f"Utilização de memória antes: {memoria_inicial} MB")
 
     while queue:
-        queue = deque(sorted(queue, key=lambda x: heuristic(x[0])))  # Ordena a fila com base na heurística
-        current_state, path = queue.popleft()
-        if current_state.is_goal():
-            return path
+        queue = deque(sorted(queue, key=lambda x: heuristic(x[0])))
+        estado_atual, caminho = queue.popleft()
 
-        visited.add(current_state)
-        successors = current_state.successors()
+        if estado_atual.is_goal():
+            fim = time.time()
+            tempo_execucao = fim - inicio
 
-        for successor, action in successors:
-            if successor not in visited:
-                queue.append((successor, path + [action]))
+            memoria_final = calcular_memoria_utilizada()
+            print(f"Utilização de memória depois: {memoria_final} MB")
+
+            diferenca_memoria = memoria_final - memoria_inicial
+            print(f"Diferença de memória: {diferenca_memoria} MB")
+            print(f"Tempo de execução: {tempo_execucao} segundos")
+
+            return caminho
+
+        visitados.add(estado_atual)
+        sucessores = estado_atual.successors()
+
+        for sucessor, acao in sucessores:
+            if sucessor not in visitados:
+                queue.append((sucessor, caminho + [acao]))
+                nos_gerados += 1
+
+    fim = time.time()
+    tempo_execucao = fim - inicio
+
+    memoria_final = calcular_memoria_utilizada()
+    print(f"Utilização de memória depois: {memoria_final} MB")
+
+    diferenca_memoria = memoria_final - memoria_inicial
+    print(f"Diferença de memória: {diferenca_memoria} MB")
+    print(f"Tempo de execução: {tempo_execucao} segundos")
 
     return None
 
 print("Busca Gulosa:")
-solucao_gulosa = greedy_search()
+solucao_gulosa = busca_gulosa()
 if solucao_gulosa:
     lado = False
     for i, acao in enumerate(solucao_gulosa):
         lado = not lado
-        print(f"Passo {i+1}: Leve {acao[0]} missionarios e {acao[1]} canibais para o lado {'direito' if lado == True else 'esquerdo'}.")
+        print(f"Passo {i+1}: Leve {acao[0]} missionários e {acao[1]} canibais para o lado {'direito' if lado == True else 'esquerdo'}.")
 else:
     print("Não foi encontrada uma solução para o problema usando busca gulosa.")
