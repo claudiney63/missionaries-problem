@@ -1,86 +1,168 @@
-from Estado import *
-import time
-from collections import deque
-import sys
+import heapq
 import psutil
+import time
+
+class Estado:
+    def __init__(self, missionarios_esquerda, canibais_esquerda, missionarios_direita, canibais_direita, barco_na_esquerda):
+        self.missionarios_esquerda = missionarios_esquerda
+        self.canibais_esquerda = canibais_esquerda
+        self.missionarios_direita = missionarios_direita
+        self.canibais_direita = canibais_direita
+        self.barco_na_esquerda = barco_na_esquerda
+
+    def e_valido(self):
+        if (
+            self.missionarios_esquerda < 0
+            or self.canibais_esquerda < 0
+            or self.missionarios_direita < 0
+            or self.canibais_direita < 0
+        ):
+            return False
+        if (
+            self.missionarios_esquerda > 0
+            and self.missionarios_esquerda < self.canibais_esquerda
+            or self.missionarios_direita > 0
+            and self.missionarios_direita < self.canibais_direita
+        ):
+            return False
+        return True
+
+    def e_objetivo(self):
+        return (
+            self.missionarios_esquerda == 0
+            and self.canibais_esquerda == 0
+            and self.missionarios_direita == self.canibais_direita
+        )
+
+    def __str__(self):
+        return f"[{self.missionarios_esquerda}, {self.canibais_esquerda}, {self.missionarios_direita}, {self.canibais_direita}, {'Esquerda' if self.barco_na_esquerda else 'Direita'}]"
 
 
-def calcular_memoria_utilizada():
-    processo = psutil.Process()
-    memoria = processo.memory_info().rss
-    return memoria / (1024 * 1024)  # Converter para megabytes
+def obter_movimentos_possiveis(estado):
+    movimentos_possiveis = []
+    if estado.barco_na_esquerda:
+        for m in range(estado.missionarios_esquerda + 1):
+            for c in range(estado.canibais_esquerda + 1):
+                if 1 <= m + c <= 2:
+                    movimentos_possiveis.append((m, c))
+    else:
+        for m in range(estado.missionarios_direita + 1):
+            for c in range(estado.canibais_direita + 1):
+                if 1 <= m + c <= 2:
+                    movimentos_possiveis.append((m, c))
+    return movimentos_possiveis
 
-def heuristic(state):
-    return state.missionarios + state.canibais
 
-def busca_gulosa():
-    estado_inicial = Estado(3, 3, True)
+class No:
+    def __init__(self, estado, pai=None, acao=None, g=0, h=0):
+        self.estado = estado
+        self.pai = pai
+        self.acao = acao
+        self.g = g
+        self.h = h
+
+    def __lt__(self, outro):
+        return self.g + self.h < outro.g + outro.h
+
+
+def resolver(num_missionarios, num_canibais):
+    estado_inicial = Estado(num_missionarios, num_canibais, 0, 0, True)
+    no_inicial = No(estado_inicial)
     visitados = set()
-    queue = deque([(estado_inicial, [])])
-    nos_gerados = 1
-    nos_fronteira = 1
+    fila = []
+    heapq.heappush(fila, no_inicial)
     nos_expandidos = 0
+    nos_gerados = 0
+    profundidade_maxima = 0
+    profundidade_solucao = 0
 
-    inicio = time.time()
-    memoria_inicial = calcular_memoria_utilizada()
-    print(f"Utilização de memória antes: {memoria_inicial} MB")
-
-    while queue:
-        queue = deque(sorted(queue, key=lambda x: heuristic(x[0])))
-        estado_atual, caminho = queue.popleft()
-        nos_fronteira -= 1
+    while fila:
+        no_atual = heapq.heappop(fila)
+        estado_atual = no_atual.estado
         nos_expandidos += 1
+        profundidade_maxima = max(profundidade_maxima, no_atual.g)
 
-        if estado_atual.is_goal():
-            fim = time.time()
-            tempo_execucao = fim - inicio
+        if estado_atual.e_objetivo():
+            caminho = []
+            while no_atual:
+                caminho.append(no_atual.estado)
+                no_atual = no_atual.pai
+            caminho.reverse()
+            profundidade_solucao = len(caminho) - 1
+            return caminho, nos_expandidos, nos_gerados, profundidade_maxima, profundidade_solucao
 
-            memoria_final = calcular_memoria_utilizada()
-            print(f"Utilização de memória depois: {memoria_final} MB")
+        visitados.add(str(estado_atual))
 
-            diferenca_memoria = memoria_final - memoria_inicial
-            print(f"Diferença de memória: {diferenca_memoria} MB")
-            print(f"Tempo de execução: {tempo_execucao} segundos")
+        movimentos_possiveis = obter_movimentos_possiveis(estado_atual)
+        for movimento in movimentos_possiveis:
+            novo_estado = aplicar_movimento(estado_atual, movimento)
 
-            return caminho, nos_gerados, nos_fronteira, nos_expandidos
-
-        visitados.add(estado_atual)
-        sucessores = estado_atual.successors()
-
-        print("Estado atual: ", estado_atual)
-        for sucessor, acao in sucessores:
-            new_state = Estado(sucessor.missionarios, sucessor.canibais, sucessor.barco_esquerda)
-            valid_indicator = "(V)" if new_state.is_valid() else "(X)"
-            visited_indicator = "(R)" if str(new_state) in visitados else "( )"
-            print(f"  Ação: {acao}, Sucessor: {new_state} {valid_indicator} {visited_indicator}")
-
-            if new_state not in visitados:
-                queue.append((new_state, caminho + [acao]))
+            if str(novo_estado) not in visitados:
                 nos_gerados += 1
-                nos_fronteira += 1
+                if novo_estado.e_valido():
+                    novo_no = No(
+                        novo_estado,
+                        pai=no_atual,
+                        acao=movimento,
+                        g=no_atual.g + 1,
+                        h=calcular_heuristica(novo_estado),
+                    )
+                    visitados.add(str(novo_estado))
+                    heapq.heappush(fila, novo_no)
 
-    fim = time.time()
-    tempo_execucao = fim - inicio
+    return None, nos_expandidos, nos_gerados, profundidade_maxima, profundidade_solucao
 
-    memoria_final = calcular_memoria_utilizada()
-    print(f"Utilização de memória depois: {memoria_final} MB")
 
-    diferenca_memoria = memoria_final - memoria_inicial
-    print(f"Diferença de memória: {diferenca_memoria} MB")
-    print(f"Tempo de execução: {tempo_execucao} segundos")
+def aplicar_movimento(estado, movimento):
+    missionarios, canibais = movimento
+    if estado.barco_na_esquerda:
+        novo_missionarios_esquerda = estado.missionarios_esquerda - missionarios
+        novo_canibais_esquerda = estado.canibais_esquerda - canibais
+        novo_missionarios_direita = estado.missionarios_direita + missionarios
+        novo_canibais_direita = estado.canibais_direita + canibais
+        novo_barco_na_esquerda = False
+    else:
+        novo_missionarios_esquerda = estado.missionarios_esquerda + missionarios
+        novo_canibais_esquerda = estado.canibais_esquerda + canibais
+        novo_missionarios_direita = estado.missionarios_direita - missionarios
+        novo_canibais_direita = estado.canibais_direita - canibais
+        novo_barco_na_esquerda = True
+    return Estado(novo_missionarios_esquerda, novo_canibais_esquerda, novo_missionarios_direita, novo_canibais_direita, novo_barco_na_esquerda)
 
-    return None, nos_gerados, nos_fronteira, nos_expandidos
 
-print("Busca Gulosa:")
-solucao_gulosa, nos_gerados, nos_fronteira, nos_expandidos = busca_gulosa()
-if solucao_gulosa:
-    lado = False
-    for i, acao in enumerate(solucao_gulosa):
-        lado = not lado
-        print(f"Passo {i+1}: Leve {acao[0]} missionários e {acao[1]} canibais para o lado {'direito' if lado == True else 'esquerdo'}.")
-else:
-    print("Não foi encontrada uma solução para o problema usando busca gulosa.")
+def calcular_heuristica(estado):
+    return estado.missionarios_esquerda + estado.canibais_esquerda
 
-print(f"Quantidade de nós gerados: {nos_gerados}")
-print(f"Quantidade de nós de fronteira: {nos_fronteira}")
-print(f"Quantidade de nós expandidos: {nos_expandidos}")
+
+if __name__ == "__main__":
+    num_missionarios = 3
+    num_canibais = 3
+
+    # Obter uso de memória antes da execução
+    memoria_inicial = psutil.Process().memory_info().rss / (1024 * 1024)  # Convertendo para megabytes
+
+    # Obter tempo de início
+    tempo_inicial = time.time()
+
+    solucao, nos_expandidos, nos_gerados, profundidade_maxima, profundidade_solucao = resolver(num_missionarios, num_canibais)
+
+    # Obter tempo de término
+    tempo_final = time.time()
+
+    # Obter uso de memória após a execução
+    memoria_final = psutil.Process().memory_info().rss / (1024 * 1024)  # Convertendo para megabytes
+
+    if solucao:
+        print("Nos expandidos:", nos_expandidos)
+        print("Nos gerados:", nos_gerados)
+        print("Profundidade máxima:", profundidade_maxima)
+        print("Profundidade solução:", profundidade_solucao)
+        print("Tempo de execução:", tempo_final - tempo_inicial, "segundos")
+        print("Uso de memória:", memoria_final - memoria_inicial, "megabytes")
+        print("Caminho:")
+
+        for estado in solucao:
+            print(estado)
+
+    else:
+        print("Nenhuma solução encontrada.")
