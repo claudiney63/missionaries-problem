@@ -1,13 +1,17 @@
 import Estado
+import psutil
+import time
 from collections import deque
 
+
+def calcular_memoria_utilizada():
+    processo = psutil.Process()
+    memoria = processo.memory_info().rss
+    return memoria / (1024 * 1024)  # Converter para megabytes
+
+
 def bfs():
-    """
-     A função bfs() utiliza a busca em largura (BFS) para explorar todos os estados possíveis 
-     até encontrar uma solução. Ela mantém uma fila de estados a serem explorados e uma lista de estados visitados 
-     para evitar ciclos. A função retorna uma lista de ações que levam à solução, indicando quantos missionários e 
-     canibais devem ser levados de uma margem para a outra em cada passo.
-    """
+    nos_gerados = 0
     initial_state = Estado.Estado(3, 3, True)
     visited = set()
     queue = deque([(initial_state, [])])
@@ -23,8 +27,10 @@ def bfs():
         for successor, action in successors:
             if successor not in visited:
                 queue.append((successor, path + [action]))
+                nos_gerados+=1
 
     return None
+
 
 def dfs():
     """
@@ -48,7 +54,9 @@ def dfs():
             if successor not in visited:
                 stack.append((successor, path + [action]))
 
+
     return None
+
 
 def show_resolution(typeSearch):
     solucao_bfs = typeSearch
@@ -56,13 +64,28 @@ def show_resolution(typeSearch):
         lado = False
         for i, acao in enumerate(solucao_bfs):
             lado = not lado
-            print(f"Passo {i+1}: Leve {acao[0]} missionarios e {acao[1]} canibais para o lado {'direito' if lado == True else 'esquerdo'}.")
+            print(
+                f"Passo {i+1}: Leve {acao[0]} missionarios e {acao[1]} canibais para o lado {'direito' if lado == True else 'esquerdo'}.")
     else:
         print("Não foi encontrada uma solução para o problema usando BFS.")
 
 
+print("Busca Força Bruta: ")
+inicio = time.time()
+memoria_inicial = calcular_memoria_utilizada()
+print(f"Utilizacao de memoria antes: {memoria_inicial} MB")
+
 print("Busca em Largura (BFS):")
 show_resolution(bfs())
 
+fim = time.time()
+tempo_execucao = fim - inicio
+memoria_final = calcular_memoria_utilizada()
+print(f"Utilizacao de memoria depois: {memoria_final} MB")
+diferenca_memoria = memoria_final - memoria_inicial
+print(f"Diferenca de memoria: {diferenca_memoria} MB")
+print(f"Tempo de execucao: {tempo_execucao} segundos")
+busca ,nos_gerados = bfs()
+print(f"Nós gerados: {nos_gerados}")
 print("\nBusca em Profundidade (DFS):")
 show_resolution(dfs())

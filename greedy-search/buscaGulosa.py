@@ -1,5 +1,5 @@
 from collections import deque
-import Estado
+import Estado 
 
 def heuristic(state):
     # Função heurística: número de missionários e canibais ainda na margem esquerda
