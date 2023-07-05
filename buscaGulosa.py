@@ -2,6 +2,7 @@ import heapq
 import psutil
 import time
 
+
 class Estado:
     def __init__(self, missionarios_esquerda, canibais_esquerda, missionarios_direita, canibais_direita, barco_na_esquerda):
         self.missionarios_esquerda = missionarios_esquerda
@@ -73,6 +74,7 @@ def resolver(num_missionarios, num_canibais):
     heapq.heappush(fila, no_inicial)
     nos_expandidos = 0
     nos_gerados = 0
+    uso_memoria_maximo = 0
     profundidade_maxima = 0
     profundidade_solucao = 0
 
@@ -89,13 +91,15 @@ def resolver(num_missionarios, num_canibais):
                 no_atual = no_atual.pai
             caminho.reverse()
             profundidade_solucao = len(caminho) - 1
-            return caminho, nos_expandidos, nos_gerados, profundidade_maxima, profundidade_solucao
+            return caminho, nos_expandidos, nos_gerados, uso_memoria_maximo, profundidade_maxima, profundidade_solucao
 
         visitados.add(str(estado_atual))
 
         movimentos_possiveis = obter_movimentos_possiveis(estado_atual)
         for movimento in movimentos_possiveis:
             novo_estado = aplicar_movimento(estado_atual, movimento)
+            indicador_valido = "Permitido" if novo_estado.e_valido() else ""
+            print(f"{estado_atual} - {novo_estado} {indicador_valido}")
 
             if str(novo_estado) not in visitados:
                 nos_gerados += 1
@@ -110,7 +114,11 @@ def resolver(num_missionarios, num_canibais):
                     visitados.add(str(novo_estado))
                     heapq.heappush(fila, novo_no)
 
-    return None, nos_expandidos, nos_gerados, profundidade_maxima, profundidade_solucao
+        # Atualizar uso de memória máximo
+        memoria_atual = psutil.Process().memory_info().rss
+        uso_memoria_maximo = max(uso_memoria_maximo, memoria_atual)
+
+    return None, nos_expandidos, nos_gerados, uso_memoria_maximo, profundidade_maxima, profundidade_solucao
 
 
 def aplicar_movimento(estado, movimento):
@@ -127,7 +135,13 @@ def aplicar_movimento(estado, movimento):
         novo_missionarios_direita = estado.missionarios_direita - missionarios
         novo_canibais_direita = estado.canibais_direita - canibais
         novo_barco_na_esquerda = True
-    return Estado(novo_missionarios_esquerda, novo_canibais_esquerda, novo_missionarios_direita, novo_canibais_direita, novo_barco_na_esquerda)
+    return Estado(
+        novo_missionarios_esquerda,
+        novo_canibais_esquerda,
+        novo_missionarios_direita,
+        novo_canibais_direita,
+        novo_barco_na_esquerda,
+    )
 
 
 def calcular_heuristica(estado):
@@ -139,30 +153,34 @@ if __name__ == "__main__":
     num_canibais = 3
 
     # Obter uso de memória antes da execução
-    memoria_inicial = psutil.Process().memory_info().rss / (1024 * 1024)  # Convertendo para megabytes
+    memoria_inicial = psutil.Process().memory_info().rss
 
     # Obter tempo de início
     tempo_inicial = time.time()
 
-    solucao, nos_expandidos, nos_gerados, profundidade_maxima, profundidade_solucao = resolver(num_missionarios, num_canibais)
+    solucao, nos_expandidos, nos_gerados, uso_memoria_maximo, profundidade_maxima, profundidade_solucao = resolver(
+        num_missionarios, num_canibais
+    )
 
-    # Obter tempo de término
-    tempo_final = time.time()
+    # Obter tempo de execução
+    tempo_execucao = time.time() - tempo_inicial
 
     # Obter uso de memória após a execução
-    memoria_final = psutil.Process().memory_info().rss / (1024 * 1024)  # Convertendo para megabytes
+    memoria_final = psutil.Process().memory_info().rss
 
     if solucao:
         print("Nos expandidos:", nos_expandidos)
         print("Nos gerados:", nos_gerados)
         print("Profundidade máxima:", profundidade_maxima)
         print("Profundidade solução:", profundidade_solucao)
-        print("Tempo de execução:", tempo_final - tempo_inicial, "segundos")
-        print("Uso de memória:", memoria_final - memoria_inicial, "megabytes")
+        print("Tempo de execução:", tempo_execucao)
+        print("Uso máximo de memória:", uso_memoria_maximo)
         print("Caminho:")
-
         for estado in solucao:
             print(estado)
-
     else:
         print("Nenhuma solução encontrada.")
+
+    # Calcular uso de memória final em megabytes
+    uso_memoria_final = (memoria_final - memoria_inicial) / 1024 / 1024
+    print("Uso de memória durante a execução:", uso_memoria_final, "MB")
